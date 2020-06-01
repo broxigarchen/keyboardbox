@@ -45,6 +45,9 @@ endif
 
 #Target
 OBJS          := $(addsuffix .o, $(basename $(notdir $(SOURCES))))
+ifeq ($(TARGET),)
+TARGET        := $(shell basename $(PROJECT_ROOT))
+endif
 
 ifeq ($(BUILD_DIR),)
 BUILD_DIR      := $(PROJECT_ROOT)
@@ -72,8 +75,6 @@ tags:
 	ctags -R -f $(BUILD_DIR)/tags
 
 clean:
-	@echo $(_CPPOBJS)
-	@echo $(CPPSRC_PATH)
 	$(RM) -rf $(BUILD_DIR)/*.o  $(BUILD_DIR)/$(TARGET)
 
 cleanall:
