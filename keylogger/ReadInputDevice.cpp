@@ -24,30 +24,34 @@ SOFTWARE.
 
 #include <regex>
 #include <iostream>
-#include "ReadInputDevice.h"
-#include "common/PosixHelper.h"
 #include <linux/input.h>
 #include <thread>
 #include <string>
 
+#include "ReadInputDevice.h"
+#include "PosixHelper.h"
+
 /*
  * Base on Linux input subsystem
- * Search through /proc/bus/input/devices to retrieve device number
+ * Search through /proc/bus/input/devices to retrieve event number
  */
 int ReadInputDevice::InputSystemKbdGetDevice(std::string& dev)
 {
 	const char* cmd = "cat /proc/bus/input/devices | grep -A 4 -E Keyboard | grep -Eo \"event[0-9]+\"";
 	std::string res = PosixHelper::exec(cmd);
 		
+	std::cmatch match;
 	std::regex expected("event[0-9]+", std::regex::extended | std::regex::icase);
-	if(std::regex_match(res.c_str(), expected)) {
-		dev = res;
+	if(std::regex_search(res.c_str(), match, expected))
+	{
+		dev = "/dev/input/";
+		dev += match[0];
 		return 0;
 	}
 	return -1;
 }
 
-ReadInputDevice::ReadInputDevice(std::string device, std::condition_variable* cond) : keylogger(cond)
+ReadInputDevice::ReadInputDevice(std::string device)
 {
 	if(device.compare("default") == 0)
 	{
@@ -57,29 +61,33 @@ ReadInputDevice::ReadInputDevice(std::string device, std::condition_variable* co
 			throw std::ios_base::failure("no keyboard device found!");
 		}
 	}
-	std::cout<<"device is"<<device<<std::endl;
-	ofs.open(device.c_str(), std::ofstream::in);
-	if(!ofs.is_open())
+	std::cout<<"device is "<<device<<std::endl;
+	ifs.open(device.c_str(), std::ifstream::in | std::ifstream::binary);
+	if(ifs.fail())
 	{
-		throw std::ios_base::failure("cannot open device!");
+		perror("ReadInputDevice");
+		throw std::ios_base::failure("");
 	}
-	std::thread worker(&ReadInputDevice::main, this);
+	this->worker = std::thread(&ReadInputDevice::kbdListener, this);
 }
 
-void ReadInputDevice::main(void)
+void ReadInputDevice::kbdListener(void)
 {
-	/*
 	std::cout<<"worker start"<<std::endl;
 	input_event event;
+	std::string output('\0', 100);
+
 	while(1)
 	{
-		ofs.read(&event, sizeof(input_event));
-		if(res <= 0)
+		ifs.read(reinterpret_cast<char*>(&event), sizeof(input_event));
+		if(ifs)
 		{
+			std::cout<< this->parseEvent(event) <<std::endl;
+		} else {
 			std::cout<<"error read"<<std::endl;
 		}
 	}
-	*/
+	//std::this_thread::sleep_for(std::chrono::milliseconds(500));
 }
 
 bool ReadInputDevice::ifkeyStrokeAvailable(void)

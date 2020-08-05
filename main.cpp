@@ -21,17 +21,59 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
+#include <iostream>
+#include <unistd.h>
+
 #include "actors.h"
 #include "scanner.h"
 #include "actors/actorInit.h"
 #include "keylogger/ReadInputDevice.h"
-#include "common/PosixHelper.h"
+#include "PosixHelper.h"
 
 int main(int argc, char** argv)
 {
-	std::condition_variable cond;
-	ReadInputDevice logger("default", &cond);
+	int opt;
+	bool set_daemon = false;
 
-	PosixHelper::SysSignalHandler monitor(NULL);
-	return 0;
+	while((opt = getopt(argc, argv, "dh")) != -1) {
+		switch(opt) {
+			case 'd':
+				set_daemon = 1;
+				break;
+			case 'h':
+				fprintf(stdout, 
+						"Usage: keyboardbox [-d]\n"
+						"-d		run as daemon\n"
+						"-h		show this help\n"
+						);
+				break;
+			default:
+				fprintf(stderr, "unkown argument %c", opt);
+				exit(EXIT_FAILURE);
+				break;
+		}
+	}
+
+	int rc = PosixHelper::switchToRoot();
+	if(rc)
+	{
+		perror("switchToRoot");
+		fprintf(stderr, "Require root privilege to run!\n");
+		return EXIT_FAILURE;
+	}
+
+	if(set_daemon)
+	{
+		PosixHelper::runAsDaemon();
+	}
+
+	//ReadInputDevice logger("default");
+	ReadInputDevice logger("/dev/input/event4");
+
+	if(!set_daemon)
+	{
+		PosixHelper::SysSignalHandler monitor(NULL);
+	}
+	return EXIT_SUCCESS;
 }

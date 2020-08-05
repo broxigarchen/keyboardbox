@@ -26,8 +26,13 @@ RM        := rm
 CP        := cp
 
 PROJECT_ROOT  := $(patsubst %/,%,$(dir $(abspath $(word 1, $(MAKEFILE_LIST)))))
+ifeq ($(DBG),1)
+CXXFLAGS     := -g -O0
+CCFLAGS      := -g -O0
+else
 CXXFLAGS     :=
 CCFLAGS      :=
+endif
 LDFLAGS      :=
 EXCLUDE_DIR  := 
 EXCLUDE_INC  := 

