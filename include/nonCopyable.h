@@ -21,24 +21,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include <fstream>
 
-#include <thread>
-#include "keylogger.h"
-class ReadInputDevice: public keylogger
-{
+#ifndef NONCOPYABLE_H_
+#define NONCOPYABLE_H_
+
+class nonCopyable {
 	public:
-		ReadInputDevice(std::string device);
-		~ReadInputDevice() 
-		{
-			ifs.close();
-		}
-		void kbdListener(void);
-		bool ifkeyStrokeAvailable(void);
-		int  getKeyStroke(void);
-
-	private:
-		std::ifstream ifs;
-		std::thread worker;
-		int InputSystemKbdGetDevice(std::string& dev);
+	nonCopyable& operator=(const nonCopyable&) = delete;
+	nonCopyable(const nonCopyable&) = delete;
+	nonCopyable() = default;
 };
+
+#endif
+

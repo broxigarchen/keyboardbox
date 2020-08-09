@@ -25,15 +25,18 @@ SOFTWARE.
 #include <iostream>
 #include <unistd.h>
 
-#include "actors.h"
-#include "scanner.h"
-#include "actors/actorInit.h"
-#include "keylogger/ReadInputDevice.h"
+#include "actor.h"
 #include "PosixHelper.h"
+#include "actors/actorInit.h"
+#include "keylogger/readInputDevice.h"
+#include "emulator/kbdEmu.h"
+#include "keymaps/keyMaps.h"
+#include "task.h"
 
 int main(int argc, char** argv)
 {
 	int opt;
+	int rc;
 	bool set_daemon = false;
 
 	while((opt = getopt(argc, argv, "dh")) != -1) {
@@ -55,7 +58,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	int rc = PosixHelper::switchToRoot();
+	rc = PosixHelper::switchToRoot();
 	if(rc)
 	{
 		perror("switchToRoot");
@@ -63,17 +66,22 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
+	//setup emulator, logger, keymap
+	kbdEmu          emulator("/dev/hidg0");
+	//ReadInputDevice logger("default");
+	ReadInputDevice logger("/dev/input/event0");
+	keyMaps         keymap;
+
+	//setup actor
+	//actorInit();	
+
+	rc = launch_task(emulator, logger, keymap);
+
 	if(set_daemon)
 	{
 		PosixHelper::runAsDaemon();
 	}
 
-	//ReadInputDevice logger("default");
-	ReadInputDevice logger("/dev/input/event4");
-
-	if(!set_daemon)
-	{
-		PosixHelper::SysSignalHandler monitor(NULL);
-	}
+	PosixHelper::SysSignalHandler monitor(NULL);
 	return EXIT_SUCCESS;
 }

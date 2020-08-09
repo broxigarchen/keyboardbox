@@ -13,7 +13,7 @@ echo 0x0100 > bcdDevice    # v1.0.0
 echo 0x0200 > bcdUSB       # USB2
 echo 0x03 > bDeviceClass   #hid
 echo 0x00 > bDeviceSubClass
-echo 0x00 > bDeviceProtocol
+echo 0x01 > bDeviceProtocol
 
 #USB strings
 mkdir -p strings/0x409
@@ -28,7 +28,7 @@ echo 250 > configs/c.1/MaxPower
 
 #USB kbd function
 mkdir -p functions/hid.usb0
-echo 0 > functions/hid.usb0/protocol
+echo 1 > functions/hid.usb0/protocol
 echo 0 > functions/hid.usb0/subclass
 echo 8 > functions/hid.usb0/report_length
 echo 63 > functions/hid.usb0/report_desc_length

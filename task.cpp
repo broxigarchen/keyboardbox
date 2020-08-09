@@ -22,48 +22,29 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef HIDEMU_H_
-#define HIDEMU_H_
+#include <thread>
 
-#include <fstream>
-#include <errno.h>
+#include "kbdEmu.h"
+#include "readInputDevice.h"
+#include "keyMaps.h"
+#include "actor.h"
+#include "task.h"
 
-#include "nonCopyable.h"
-class hidEmu: public nonCopyable
+static std::thread main_thread;
+
+void main_task(kbdEmu& kbd, ReadInputDevice& logger, keyMaps& map)
 {
-	public:
-		hidEmu(const char* dev)
-		{
-			fs.open(dev, std::fstream::out | std::fstream::in | std::fstream::binary);
-			if(fs.fail())
-			{
-				perror("hidEmu");
-				exit(EXIT_FAILURE);
-			}
-		}
+	kbdReport report;
+	while(1)
+	{
+		report = logger.getKeyReport();
 
-		virtual ~hidEmu()
-		{
-			fs.close();
-		}
+		kbd.addKbdReport(report);
+	}
+}
 
-	protected:
-
-		void send(const char* buf, size_t n)
-		{
-			if(fs.fail())
-			{
-				perror("KbdEmu write");
-				exit(EXIT_FAILURE);
-			}
-
-			fs.write(buf, n);
-			fs.flush();
-		}
-
-		std::fstream fs;
-};
-
-
-
-#endif
+int launch_task(kbdEmu& kbd, ReadInputDevice& logger, keyMaps& map)
+{
+	main_thread = std::thread(main_task, std::ref(kbd), std::ref(logger), std::ref(map));
+	return 0;
+}

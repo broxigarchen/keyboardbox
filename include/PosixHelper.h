@@ -142,20 +142,27 @@ class SysSignalHandler
 	}
 };
 
-static inline std::string parseTimeval(struct timeval time)
+static inline std::string parseTimeval(struct timeval& time)
 {
 	time_t nowtime;
 	struct tm *nowtm;
 	char tmbuf[64];
 	std::string output(64, '\0');
 
-	gettimeofday(&time, NULL);
+	//gettimeofday(&time, NULL);
 	nowtime = time.tv_sec;
 	nowtm = localtime(&nowtime);
 	strftime(tmbuf, sizeof(tmbuf), "%Y-%m-%d %H:%M:%S", nowtm);
 	std::snprintf(const_cast<char*>(output.c_str()), output.size(),
 				"%s.%06ld", tmbuf, time.tv_usec);
 	return output;
+}
+
+static inline std::string getTimeStamp(void)
+{
+	struct timeval time;
+	gettimeofday(&time, NULL);
+	return parseTimeval(time);
 }
 
 }

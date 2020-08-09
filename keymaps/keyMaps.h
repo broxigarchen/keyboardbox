@@ -22,48 +22,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef HIDEMU_H_
-#define HIDEMU_H_
+#ifndef KEYMAPS_H_
+#define KEYMAPS_H_
 
-#include <fstream>
-#include <errno.h>
-
-#include "nonCopyable.h"
-class hidEmu: public nonCopyable
+class keyMaps
 {
-	public:
-		hidEmu(const char* dev)
-		{
-			fs.open(dev, std::fstream::out | std::fstream::in | std::fstream::binary);
-			if(fs.fail())
-			{
-				perror("hidEmu");
-				exit(EXIT_FAILURE);
-			}
-		}
 
-		virtual ~hidEmu()
-		{
-			fs.close();
-		}
-
-	protected:
-
-		void send(const char* buf, size_t n)
-		{
-			if(fs.fail())
-			{
-				perror("KbdEmu write");
-				exit(EXIT_FAILURE);
-			}
-
-			fs.write(buf, n);
-			fs.flush();
-		}
-
-		std::fstream fs;
 };
-
-
 
 #endif

@@ -22,48 +22,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef HIDEMU_H_
-#define HIDEMU_H_
-
-#include <fstream>
-#include <errno.h>
-
-#include "nonCopyable.h"
-class hidEmu: public nonCopyable
+#include <cstdint>
+class keyLogger
 {
 	public:
-		hidEmu(const char* dev)
-		{
-			fs.open(dev, std::fstream::out | std::fstream::in | std::fstream::binary);
-			if(fs.fail())
-			{
-				perror("hidEmu");
-				exit(EXIT_FAILURE);
-			}
+		keyLogger() {
 		}
 
-		virtual ~hidEmu()
-		{
-			fs.close();
+		virtual ~keyLogger() {
 		}
+		static const char* keyToStr[256]; 
 
-	protected:
+		uint8_t convertScanToKeyLinux(uint8_t code);
+		uint8_t convertKeyToScanLinux(uint8_t code);
+		static const uint8_t scanToKeyLinux[256];
+		static const uint8_t keyToScanLinux[256];
 
-		void send(const char* buf, size_t n)
-		{
-			if(fs.fail())
-			{
-				perror("KbdEmu write");
-				exit(EXIT_FAILURE);
-			}
+		uint8_t convertScanToKeyWin(uint8_t code);
+		uint8_t convertKeyToScanWin(uint8_t code);
+		static const uint8_t scanToKeyWin[256];
+		static const uint8_t keyToScanWin[256];
 
-			fs.write(buf, n);
-			fs.flush();
-		}
-
-		std::fstream fs;
+		uint8_t convertScanToKeyMac(uint8_t code);
+		uint8_t convertKeyToScanMac(uint8_t code);
+		static const uint8_t scanToKeyMac[256];
+		static const uint8_t keyToScanMac[256];
+	private:
+		virtual void kbdListener(void) = 0;
 };
-
-
-
-#endif

@@ -22,70 +22,93 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifndef CIRCLEBUF_H_
+#define CIRCLEBUF_H_
+
+#include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <csignal>
 
-#include <string.h>
-#include <linux/input.h>
-#include "PosixHelper.h"
-class keylogger
+template <class T>
+class circleBuf
 {
 	public:
-		keylogger() {}
-		virtual ~keylogger() {}
-		
-		virtual void kbdListener(void) = 0;
-		virtual bool ifkeyStrokeAvailable(void) = 0;
-		virtual int  getKeyStroke(void) = 0;
-
-		enum VAL_EV_KEY
+		circleBuf(size_t size)
 		{
-			VAL_KEY_RELEASE = 0x0,
-			VAL_KEY_PRESS   = 0x1,
-			VAL_KEY_REPEAT  = 0x2,
+			buf.resize(size);
+			outpos = 0;
+			inpos = 0;
+			packets = 0;
+		}
+
+		virtual ~circleBuf(void)
+		{
+
+		}
+
+		bool ifempty(void)
+		{
+			std::lock_guard<std::mutex> lock(qlock);
+			return (packets == 0);
+		}
+
+		bool push_back(T& element)
+		{
+			std::unique_lock<std::mutex> lock(qlock);
+			if(packets >= buf.size())
+			{
+				return false;
+			}
+			buf[inpos].element = element;
+			increment();
+			qdata.notify_all();
+			return true;
+		}
+
+		T pop_front(void)
+		{
+			std::unique_lock<std::mutex> lock(qlock);
+			qdata.wait(lock, [this]{return packets > 0;});
+			size_t pos = outpos;
+			decrement();
+			return buf[pos].element;
+		}
+
+	private:
+		class cell
+		{
+			public:
+			T element;
 		};
 
-		typedef struct _keyStat
-		{
-			int code;  //key code
-			int act;   //key act
-		}keyStat_t;
+		size_t outpos;
+		size_t inpos;
+		size_t packets;
+		std::vector<cell> buf;
+		std::mutex qlock;
+		std::condition_variable qdata;
 
-		std::string parseEvent(input_event event)
+		void increment(void)
 		{
-			std::string output(200, '\0');
-			std::snprintf(const_cast<char*>(output.c_str()), output.size(),
-						"\n%s, type=%3d, code=0x%03x, val=0x%x", 
-						PosixHelper::parseTimeval(event.time).c_str(),
-						event.type,
-						event.code,
-						event.value);
-			return output;
-		}
-
-		void storeKeystroke(input_event event)
-		{
-			/* filter */
-		}
-	private:
-		keyStat_t filterKeystroke(input_event event)
-		{
-			keyStat_t t;
-			memset(&t, 0 , sizeof(keyStat_t));
-			switch(event.type)
+			inpos++;
+			packets++;
+			if(inpos >= buf.size())
 			{
-				case EV_KEY:
-					t.code = event.code;
-					t.act = event.value;
-					break;
-				case EV_SYN:
-					break;
-				default:
-					break;
+				inpos = 0; 
 			}
-			return t;
+		}
+
+		void decrement(void)
+		{
+			outpos++;
+			packets--;
+			if(outpos >= buf.size())
+			{
+				outpos = 0; 
+			}
 
 		}
-		std::condition_variable keymutex;
-	
 };
+
+#endif
