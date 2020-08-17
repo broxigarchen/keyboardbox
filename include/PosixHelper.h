@@ -31,13 +31,18 @@ SOFTWARE.
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <map>
 #include <iostream>
+#include <vector>
+
 #include <signal.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <linux/limits.h>
 #include <string>
+#include <stdarg.h>
+#include <syslog.h>
 
 namespace PosixHelper
 {
@@ -119,27 +124,50 @@ static inline void sleep(int ms)
 	::sleep(ms);
 }
 
-class SysSignalHandler
+class sysSignalHandler
 {
 	public:
-	SysSignalHandler(void (*cleanup)(void))
+	sysSignalHandler(void)
 	{
-		sigset_t set;
+		sigemptyset(&set);
+		sigmap.clear();
+	}
+
+	void addsig(int sig, void(*cb)(int))
+	{
+		if(cb == NULL)
+			return;
+		sigaddset(&set, sig);
+		sigmap[sig] = cb;
+
+		act.sa_handler = cb;
+		act.sa_flags = 0;
+		sigaction(sig, &act, NULL);
+	}
+
+	virtual void init(void)
+	{
+	}
+
+	void run(void)
+	{
 		int      sig;
 
-		sigemptyset(&set);
-		sigaddset(&set, SIGABRT);
-		sigaddset(&set, SIGTERM);
+		init();
 		while(1)
 		{
 			int rc = sigwait(&set, &sig);
 			if(rc == 0)
 			{
-				if(cleanup) cleanup();
-				break;
+				continue;
 			}
 		}
 	}
+
+	private:
+		sigset_t set;
+		std::map<int, void (*)(int)> sigmap;
+		struct sigaction act;
 };
 
 static inline std::string parseTimeval(struct timeval& time)
@@ -164,6 +192,43 @@ static inline std::string getTimeStamp(void)
 	gettimeofday(&time, NULL);
 	return parseTimeval(time);
 }
+
+class sysLog
+{
+#define SYSLOG(priority, str)\
+			va_list va;\
+			va_start(va, str);\
+			vsyslog(LOG_ERR, str, va);\
+			va_end(va);
+	public:
+		sysLog()
+		{
+			openlog(NULL, LOG_CONS | LOG_PID | LOG_NDELAY, LOG_USER);
+		}
+
+		~sysLog()
+		{
+			closelog();
+		}
+
+		void alert(const char* str, ...) { SYSLOG(LOG_ALERT, str); }
+		void alert(const char* str, va_list va)	{ vsyslog(LOG_ERR, str, va); }
+
+		void critical(const char* str, ...) { SYSLOG(LOG_CRIT, str); }
+		void critical(const char* str, va_list va) { vsyslog(LOG_CRIT, str, va); }
+
+		void info(const char* str, ...) { SYSLOG(LOG_INFO, str); }
+		void info(const char* str, va_list va) { vsyslog(LOG_INFO, str, va); }
+
+		void error(const char* str, ...) { SYSLOG(LOG_ERR, str); }
+		void error(const char* str, va_list va) { vsyslog(LOG_ERR, str, va); }
+
+		void warning(const char* str, ...) { SYSLOG(LOG_WARNING, str); }
+		void warning(const char* str, va_list va) { vsyslog(LOG_WARNING, str, va); }
+
+		void debug(const char* str, ...) { SYSLOG(LOG_DEBUG, str); }
+		void debug(const char* str, va_list va) { vsyslog(LOG_DEBUG, str, va); }
+};
 
 }
 #endif

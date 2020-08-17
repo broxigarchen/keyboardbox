@@ -32,24 +32,39 @@ SOFTWARE.
 #include "emulator/kbdEmu.h"
 #include "keymaps/keyMaps.h"
 #include "task.h"
+#include "log.h"
+
+class kbdHandler: public PosixHelper::sysSignalHandler
+{
+	static void dummy(int sig)
+	{
+		//do nothing
+	}
+
+	virtual void init(void)
+	{
+		addsig(SIGINT, &kbdHandler::dummy);
+		addsig(SIGQUIT, &kbdHandler::dummy);
+		addsig(SIGTSTP, &kbdHandler::dummy);
+	}
+};
 
 int main(int argc, char** argv)
 {
 	int opt;
 	int rc;
-	bool set_daemon = false;
 
-	while((opt = getopt(argc, argv, "dh")) != -1) {
+	while((opt = getopt(argc, argv, "hd")) != -1) {
 		switch(opt) {
-			case 'd':
-				set_daemon = 1;
-				break;
 			case 'h':
 				fprintf(stdout, 
-						"Usage: keyboardbox [-d]\n"
-						"-d		run as daemon\n"
+						"Usage: keyboardbox [-hd]\n"
+						"-d     debug mode, use stdout\n"
 						"-h		show this help\n"
 						);
+				break;
+			case 'd':
+				usesyslog = 0;
 				break;
 			default:
 				fprintf(stderr, "unkown argument %c", opt);
@@ -61,15 +76,15 @@ int main(int argc, char** argv)
 	rc = PosixHelper::switchToRoot();
 	if(rc)
 	{
-		perror("switchToRoot");
-		fprintf(stderr, "Require root privilege to run!\n");
+		PERROR("switchToRoot");
+		ERROR("Require root privilege to run!\n");
 		return EXIT_FAILURE;
 	}
 
 	//setup emulator, logger, keymap
-	kbdEmu          emulator("/dev/hidg0");
 	//ReadInputDevice logger("default");
 	ReadInputDevice logger("/dev/input/event0");
+	kbdEmu          emulator("/dev/hidg0",logger.getDeviceName().c_str());
 	keyMaps         keymap;
 
 	//setup actor
@@ -77,11 +92,7 @@ int main(int argc, char** argv)
 
 	rc = launch_task(emulator, logger, keymap);
 
-	if(set_daemon)
-	{
-		PosixHelper::runAsDaemon();
-	}
-
-	PosixHelper::SysSignalHandler monitor(NULL);
+	kbdHandler handler;
+	handler.run();
 	return EXIT_SUCCESS;
 }

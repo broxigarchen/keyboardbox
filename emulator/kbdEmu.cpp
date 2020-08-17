@@ -37,15 +37,58 @@ const std::map<uint8_t, uint8_t> kbdReport::kmodmap = {
   {231,  KBD_RGUI},
 };
 
-kbdEmu::kbdEmu(const char* dev, size_t size): hidEmu(dev)
+const char* kbdReport::codeToString[256] =
 {
-	queue = new circleBuf<kbdReport>(size); 
-	this->worker = std::thread(&kbdEmu::sender, this);
+"err","err","err",
+"A","B","C","D","E","F","G","H","I","J","K","L","M",
+"N","O","P","Q","R","S","T","U","V","W","X","Y","Z",
+"1","2","3","4","5","6","7","8","9","0",
+"Enter","Esc","BSp","Tab","Space",
+"-/_","=/+","[/{","]/}","\\/|","...",";/:","\'/\"","'/<","./>","//?","Caps Lock",
+"F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12",
+"PrtScr","Scroll Lock","Pause","Insert","Home","PgUp","Delete","End","PgDn",
+"Right","Left","Down","Up",
+"Num Lock","KP /","KP *","KP -","KP +","KP Enter","KP 1/End","KP 1/Down",
+"KP 2/Down","KP 3/PgDn","KP 4/Left","KP 5","KP 6/Right","KP 7/Home","KP 8/Up",
+"KP 9/PgUp","KP 0/Ins","KP ./Del",
+"...","Applic","Power","KP=",
+"F13","F14","F15","F16","F17","F18","F19","F20","F21","F22","F23","F24",
+"Execute","Help","Menu","Select","Stop","Again","Undo","Cut","Copy","Paste",
+"Find","Mute","Volume Up","Volume Down","Locking Caps Lock","Locking Num Lock",
+"Locking Scroll Lock","KP ,","KP =",
+"Internet","Internet","Internet","Internet","Internet","Internet","Internet","Internet","Internet",
+"LANG","LANG","LANG","LANG","LANG","LANG","LANG","LANG","LANG",
+"Alt Erase","SysRq","Cancel","Clear","Prior","Return","Separ","Out","Oper","Clear/Again",
+"CrSel/Props","ExSel","","","",
+"LCtrl","LShift","LAlt","LGUI","RCtrl","RShift","RAlt","RGUI",
+};
+
+kbdEmu::kbdEmu(const char* _gadget, const char* _kbd, size_t size)
+{
+	gadget.open(_gadget, std::fstream::out | std::fstream::in | std::fstream::binary);
+	if(gadget.fail())
+	{
+		PERROR("hidEmu gadget.open");
+		exit(EXIT_FAILURE);
+	}
+	kbd.open(_kbd, std::fstream::out | std::fstream::binary);
+	if(kbd.fail())
+	{
+		PERROR("hidEmu kbd.open");
+		exit(EXIT_FAILURE);
+	}
+
+	queue = new circleBuf<kbdReport>(size);
+
+	this->worker[0] = std::thread(&kbdEmu::sender, this);
+	this->worker[1] = std::thread(&kbdEmu::receiver, this);
 }
 
 kbdEmu::~kbdEmu()
 {
 	delete queue;
+	gadget.close();
+	kbd.close();
 }
 
 int kbdEmu::addKbdReport(kbdReport report)
@@ -60,12 +103,53 @@ void kbdEmu::sender(void)
 	{
 		r = queue->pop_front();
 
-		std::cout<< PosixHelper::getTimeStamp()
-				 << " send report: "
-				 << r.getString()
-				 << std::endl;
+		DEBUG("%s send report: %s",
+				PosixHelper::getTimeStamp().c_str(),
+				r.getString().c_str());
 
-		send((const char*)&(r.report), sizeof(r.report));
+		if(gadget.fail())
+		{
+			PERROR("KbdEmu write");
+			exit(EXIT_FAILURE);
+		}
+
+		gadget.write((const char*)&r.report, sizeof(r.report));
+		gadget.flush();
 	}
 }
 
+void kbdEmu::receiver(void)
+{
+	ledReport r;
+	while(1)
+	{
+		gadget.read(reinterpret_cast<char*>(&r.byte), sizeof(r));
+		if(gadget)
+		{
+			DEBUG("Received led report: %d", r.byte);
+			//for(int i = 0; i < 8; i++)
+			//	DEBUG("%d,", r[i]);
+
+			if(-1 == sendToKbd((const char*)&r.byte, sizeof(r.byte)))
+			{
+				PERROR("kbdEmu:sendToKbd");
+				exit(EXIT_FAILURE);
+			}
+		} else {
+			PERROR("kbdEmu::read");
+			exit(EXIT_FAILURE);
+		}
+
+	}
+}
+
+int kbdEmu::sendToKbd(const char* data, size_t n)
+{
+	if(kbd.fail())
+	{
+		return -1;
+	}
+	kbd.write(data, n);
+	kbd.flush();
+	return 0;
+}

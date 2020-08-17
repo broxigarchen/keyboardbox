@@ -69,18 +69,20 @@ ReadInputDevice::ReadInputDevice(std::string device, size_t size)
 		int res = this->InputSystemKbdGetDevice(device);	
 		if(res == -1)
 		{
-			throw std::ios_base::failure("no keyboard device found!");
+			CRITICAL("no keyboard device found!");
+			exit(EXIT_FAILURE);
 		}
 	}
 
-	std::cout<<"device is "<<device<<std::endl;
+	DEBUG("device is %s", device.c_str());
 
-	ifs.open(device.c_str(), std::ifstream::in | std::ifstream::binary);
-	if(ifs.fail())
+	fs.open(device.c_str(), std::fstream::in | std::fstream::out | std::fstream::binary);
+	if(fs.fail())
 	{
-		perror("ReadInputDevice");
+		PERROR("ReadInputDevice");
 		exit(EXIT_FAILURE);
 	}
+	this->device = device;
 	this->worker = std::thread(&ReadInputDevice::kbdListener, this);
 }
 
@@ -90,13 +92,13 @@ void ReadInputDevice::kbdListener(void)
 
 	while(1)
 	{
-		ifs.read(reinterpret_cast<char*>(&event), sizeof(input_event));
-		if(ifs)
+		fs.read(reinterpret_cast<char*>(&event), sizeof(input_event));
+		if(fs)
 		{
-			std::cout<< getEventString(event) <<std::endl;
+			DEBUG(getEventString(event).c_str());
 			storeKeyEvent(event);
 		} else {
-			perror("ReadInputDevice::read");
+			PERROR("ReadInputDevice::read");
 			exit(EXIT_FAILURE);
 		}
 
@@ -156,7 +158,6 @@ void ReadInputDevice::parseEventQueue(void)
 	kbdReport* report = &kbdStat.normal;
 	uint8_t scancode;
 	uint8_t keycode;
-	int rc;
 
 	while(!evtqueue->ifempty())
 	{
@@ -165,41 +166,32 @@ void ReadInputDevice::parseEventQueue(void)
 		scancode = event.code;
 		keycode = keyLogger::convertScanToKeyLinux(scancode);
 
-		std::cout << "Received Event - code:" << event.code
-			      << " act: " << event.act << std::endl;
+		DEBUG("Received Event - code: %d, act: %d", event.code, event.act);
 
 		if(report->isModifier(keycode))  //Modifier keys
 		{
 			switch(event.act)
 			{
 				case VAL_KEY_RELEASE:
-					kbdStat.setKeyRelease(scancode);
+					kbdStat.setKeyRelease(scancode, true);
 					report->removeModifier(keycode);
 				break;
 				case VAL_KEY_PRESS:
-					kbdStat.setKeyPress(scancode);
+					kbdStat.setKeyPress(scancode, true);
 					report->addModifier(keycode);
 				break;
 				default:
 				break;
 			}
 		} else {    //other keys
-			rc = report->searchKey(keycode);
-			if(rc < -1)
-			{
-				if(!kbdStat.inPhantom)
-					/* something weird happend, a non-logged
-					   key being released in non-phantom mode */
-					continue;
-			}
 			switch(event.act)
 			{
 				case VAL_KEY_RELEASE:
-					kbdStat.setKeyRelease(scancode);
+					kbdStat.setKeyRelease(scancode, false);
 					report->removeKey(keycode);
 				break;
 				case VAL_KEY_PRESS:
-					kbdStat.setKeyPress(scancode);
+					kbdStat.setKeyPress(scancode, false);
 					report->addKey(keycode);
 				break;
 				default:

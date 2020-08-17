@@ -32,19 +32,8 @@ SOFTWARE.
 
 #include "circleBuf.h"
 #include "PosixHelper.h"
+#include "log.h"
 
-enum VAL_EV_KEY
-{
-	VAL_KEY_RELEASE = 0x0,
-	VAL_KEY_PRESS   = 0x1,
-	VAL_KEY_REPEAT  = 0x2,
-};
-
-typedef struct _keyEvent
-{
-	int code;  //key code
-	int act;   //key act
-}keyEvent_t;
 
 #define KEYCODE_MAX 256
 
@@ -54,18 +43,20 @@ class ReadInputDevice: public keyLogger
 		ReadInputDevice(std::string device, size_t size = 100);
 		~ReadInputDevice() 
 		{
-			ifs.close();
+			fs.close();
 			delete queue;
 		}
 		kbdReport getKeyReport(void);
-		uint8_t convertScanToKeyLinux(uint8_t code);
+		std::string getDeviceName(void)
+		{
+			return device;
+		}
 
 	private:
-		std::ifstream ifs;
+		std::string device;
+		std::fstream fs;
 		std::thread worker;
 		circleBuf<kbdReport> *queue;         //hid report queue
-		std::condition_variable hasdata;
-
 		circleBuf<keyEvent_t> *evtqueue;     //linux key event queue
 		
 		struct
@@ -76,33 +67,34 @@ class ReadInputDevice: public keyLogger
 			size_t pressedNum; //pressed key counter, does not include modifier
 			bool   inPhantom;
 
-			void setKeyPress(int index)
+			void updatePhantom(void)
 			{
-				if(index < KEYCODE_MAX &&
-					state[index] == VAL_KEY_RELEASE)
+				if(pressedNum <= sizeof(normal.report.keypress))
+					inPhantom = false;
+				else
+					inPhantom = true;
+			}
+			void setKeyPress(uint8_t scancode, bool isModifier)
+			{
+				if(scancode < KEYCODE_MAX &&
+					state[scancode] == VAL_KEY_RELEASE)
 				{
-					state[index] = VAL_KEY_PRESS;
-					if(!normal.isModifier(index))
+					state[scancode] = VAL_KEY_PRESS;
+					if(!isModifier)
 						pressedNum++;
 				}
-				if(pressedNum <= sizeof(normal.report.keypress))
-				{
-					inPhantom = false;
-				}
+				updatePhantom();
 			}
-			void setKeyRelease(int index)
+			void setKeyRelease(uint8_t scancode, bool isModifier)
 			{
-				if(index < KEYCODE_MAX &&
-					state[index] == VAL_KEY_PRESS)
+				if(scancode < KEYCODE_MAX &&
+					state[scancode] == VAL_KEY_PRESS)
 				{
-					state[index] = VAL_KEY_RELEASE;
-					if(!normal.isModifier(index))
+					state[scancode] = VAL_KEY_RELEASE;
+					if(!isModifier)
 						pressedNum--;
 				}
-				if(pressedNum > sizeof(normal.report.keypress))
-				{
-					inPhantom = true;
-				}
+				updatePhantom();
 			}
 		}kbdStat;
 

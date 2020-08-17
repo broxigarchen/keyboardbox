@@ -34,12 +34,11 @@ static std::thread main_thread;
 
 void main_task(kbdEmu& kbd, ReadInputDevice& logger, keyMaps& map)
 {
-	kbdReport report;
+	kbdReport kr;
 	while(1)
 	{
-		report = logger.getKeyReport();
-
-		kbd.addKbdReport(report);
+		kr = logger.getKeyReport();
+		kbd.addKbdReport(kr);
 	}
 }
 

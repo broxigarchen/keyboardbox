@@ -29,39 +29,21 @@ SOFTWARE.
 #include <errno.h>
 
 #include "nonCopyable.h"
+#include "log.h"
+
 class hidEmu: public nonCopyable
 {
 	public:
-		hidEmu(const char* dev)
+		hidEmu(void)
 		{
-			fs.open(dev, std::fstream::out | std::fstream::in | std::fstream::binary);
-			if(fs.fail())
-			{
-				perror("hidEmu");
-				exit(EXIT_FAILURE);
-			}
 		}
 
 		virtual ~hidEmu()
 		{
-			fs.close();
 		}
 
 	protected:
 
-		void send(const char* buf, size_t n)
-		{
-			if(fs.fail())
-			{
-				perror("KbdEmu write");
-				exit(EXIT_FAILURE);
-			}
-
-			fs.write(buf, n);
-			fs.flush();
-		}
-
-		std::fstream fs;
 };
 
 

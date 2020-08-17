@@ -58,6 +58,7 @@ class kbdReport
 	}
 
 	static const std::map<uint8_t, uint8_t> kmodmap;
+	static const char* codeToString[256];
 
 	bool isModifier(uint8_t code)
 	{
@@ -77,7 +78,7 @@ class kbdReport
 
 	void removeModifier(uint8_t code) {
 		if(!isModifier(code)) return;
-		report.status.byte &= ~ kbdReport::kmodmap.at(code); 
+		report.status.byte &= ~ kbdReport::kmodmap.at(code);
 	}
 
 	void clear(void)
@@ -95,8 +96,32 @@ class kbdReport
 		{
 			str << std::to_string(report.keypress[i]) << " ";
 		}
+		str << keycnt;
 		str << std::endl;
 		return str.str();
+	}
+
+	std::string getNameFromCode(int code)
+	{
+		if(code < sizeof(codeToString))
+		{
+			std::string name(codeToString[code]);
+			return name;
+		}
+		std::string empty("");
+		return empty;
+	}
+
+	int getCodeFromName(const char* name)
+	{
+		for(int i = 0; i< sizeof(codeToString); i++)
+		{
+			if(codeToString[i].compare(name) == 0)
+			{
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	int searchKey(uint8_t code)
@@ -108,16 +133,21 @@ class kbdReport
 				return i;
 			}
 		}
-		return -1;
+		//0 is err
+		return 0;
 	}
 
 	void addKey(uint8_t code)
 	{
-		if(keycnt >=6)
+		int index = searchKey(code);
+		if(index == -1)
 		{
-			removeKey(0);
+			if(keycnt == sizeof(report.keypress))
+			{
+				removeKey(report.keypress[0]);
+			}
+			report.keypress[keycnt++] = code;
 		}
-		report.keypress[keycnt++] = code;
 	}
 
 	void removeKey(uint8_t code)
@@ -129,7 +159,7 @@ class kbdReport
 		}
 		for(int i = index; i < keycnt; i++)
 		{
-			if(index < keycnt - 1)
+			if(i < keycnt - 1)
 			{
 				report.keypress[i] = report.keypress[i+1];
 			} else {
@@ -168,7 +198,7 @@ class kbdReport
 			}bit;
 		}status;
 		uint8_t reserve;
-		uint8_t keypress[6];	
+		uint8_t keypress[6];
 	}report;
 	int keycnt;
 };
@@ -179,27 +209,69 @@ class kbdReport
 #define  LED_COMPOSE (0x1 << 3)
 #define  LED_KANA    (0x1 << 4)
 */
-typedef struct _ledReport
+#if 1
+typedef union _ledReport
 {
-	uint8_t numLk:1;
-	uint8_t capLk:1;
-	uint8_t scrollLk:1;
-	uint8_t compose:1;
-	uint8_t kana:1;
-	uint8_t reserve:3;
-}ledReport_t;
+	uint8_t byte;
+	struct
+	{
+		uint8_t numLk:1;
+		uint8_t capLk:1;
+		uint8_t scrollLk:1;
+		uint8_t compose:1;
+		uint8_t kana:1;
+		uint8_t reserve:3;
+	}bit;
+}ledReport;
+#else
+class ledReport
+{
+	public:
+	void setLedTemplate(void)
+	{
+		report.field.type = 0x21;
+		report.field.request = 0x9;
+		report.field.wValueL = 0;
+		report.field.wValueH = 0x2;
 
+	}
+	union
+	{
+		uint8_t byte[8];
+		struct
+		{
+			uint8_t type;
+			uint8_t request;
+			uint8_t wValueL;
+			uint8_t wValueH;
+			uint8_t wIndexL;
+			uint8_t wIndexH;
+			uint8_t wLengthL;
+			uint8_t wLengthH;
+		}field;
+	}report;
+};
+#endif
 class kbdEmu: public hidEmu
 {
 	public:
-		kbdEmu(const char* dev, size_t size = 100);
+		kbdEmu(const char* gadget, const char* kbd, size_t size = 100);
 		~kbdEmu();
 
 		int addKbdReport(kbdReport report);
-		void sender(void);
+
 	private:
-		std::thread worker;
+		std::thread worker[2];
 		circleBuf<kbdReport> *queue;
+
+		ledReport ledreport;
+		std::fstream gadget;  //slave
+		std::fstream kbd;     //master
+
+		void sender(void);
+		void receiver(void);
+
+		int sendToKbd(const char* data, size_t n);
 };
 
 #endif

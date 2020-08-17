@@ -23,6 +23,20 @@ SOFTWARE.
 */
 
 #include <cstdint>
+#include "emulator/kbdEmu.h"
+enum VAL_EV_KEY
+{
+	VAL_KEY_RELEASE = 0x0,
+	VAL_KEY_PRESS   = 0x1,
+	VAL_KEY_REPEAT  = 0x2,
+};
+
+typedef struct _keyEvent
+{
+	int code;  //key code
+	int act;   //key act
+}keyEvent_t;
+
 class keyLogger
 {
 	public:
@@ -31,8 +45,6 @@ class keyLogger
 
 		virtual ~keyLogger() {
 		}
-		static const char* keyToStr[256]; 
-
 		uint8_t convertScanToKeyLinux(uint8_t code);
 		uint8_t convertKeyToScanLinux(uint8_t code);
 		static const uint8_t scanToKeyLinux[256];
@@ -47,6 +59,8 @@ class keyLogger
 		uint8_t convertKeyToScanMac(uint8_t code);
 		static const uint8_t scanToKeyMac[256];
 		static const uint8_t keyToScanMac[256];
+
+		virtual kbdReport getKeyReport(void) = 0;
 	private:
 		virtual void kbdListener(void) = 0;
 };
