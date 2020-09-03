@@ -103,7 +103,7 @@ class kbdReport
 
 	std::string getNameFromCode(int code)
 	{
-		if(code < sizeof(codeToString))
+		if(code < (int)sizeof(codeToString))
 		{
 			std::string name(codeToString[code]);
 			return name;
@@ -114,9 +114,9 @@ class kbdReport
 
 	int getCodeFromName(const char* name)
 	{
-		for(int i = 0; i< sizeof(codeToString); i++)
+		for(unsigned i = 0; i< sizeof(codeToString); i++)
 		{
-			if(codeToString[i].compare(name) == 0)
+			if(strcmp(codeToString[i],name) == 0)
 			{
 				return i;
 			}
@@ -133,8 +133,7 @@ class kbdReport
 				return i;
 			}
 		}
-		//0 is err
-		return 0;
+		return -1;
 	}
 
 	void addKey(uint8_t code)

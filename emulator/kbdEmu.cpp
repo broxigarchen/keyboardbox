@@ -81,7 +81,7 @@ kbdEmu::kbdEmu(const char* _gadget, const char* _kbd, size_t size)
 	queue = new circleBuf<kbdReport>(size);
 
 	this->worker[0] = std::thread(&kbdEmu::sender, this);
-	this->worker[1] = std::thread(&kbdEmu::receiver, this);
+	//this->worker[1] = std::thread(&kbdEmu::receiver, this);
 }
 
 kbdEmu::~kbdEmu()

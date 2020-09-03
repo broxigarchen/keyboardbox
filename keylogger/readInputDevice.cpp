@@ -166,7 +166,8 @@ void ReadInputDevice::parseEventQueue(void)
 		scancode = event.code;
 		keycode = keyLogger::convertScanToKeyLinux(scancode);
 
-		DEBUG("Received Event - code: %d, act: %d", event.code, event.act);
+		DEBUG("Received Event - code: %d, act: %d, keycode: %d",
+				event.code, event.act, keycode);
 
 		if(report->isModifier(keycode))  //Modifier keys
 		{
