@@ -6,3 +6,6 @@ Based on Linux input subsystem and gadget hid driver.
 
 Tested platform:
 Rasperrby Pi 4b.
+
+-- Use mkgid.sh to register a gadget hid device before launch keyboardbox excutable.
+-- This module is only half-completed.
